@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新站收支平衡動態試算模型（含散客收入全模型）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    input[type=range] {
+      accent-color: #2563eb;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen p-4 md:p-8">
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- 頁頭 -->
+    <header class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">新站收支平衡動態模型（含散客純利）</h1>
+        <p class="text-sm text-slate-500 mt-1">整合員工薪資、貨款備貨（5% 年息）、廣告/伺服器、每月散客純利與忠誠老客戶滾動收益</p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+          含散客純利
+        </span>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+          含員工薪資
+        </span>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          貨款年息 5%
+        </span>
+      </div>
+    </header>
+
+    <!-- 主操作與數據展示區 -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- 左側：參數控制器 -->
+      <section class="lg:col-span-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+        <h2 class="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+          參數控制面板
+        </h2>
+
+        <!-- 每月散客純利收入 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">每月散客純利貢獻 (USD/月)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-medium">$</span>
+            <input id="inputRetailProfit" type="number" value="500" step="50" class="pl-8 w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+          <p class="text-xs text-slate-400 mt-1">非固定回購之散客帶來的單月純利潤總額</p>
+        </div>
+
+        <!-- 員工薪水成本 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">每月員工薪資成本 (USD/月)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-medium">$</span>
+            <input id="inputSalary" type="number" value="2976" step="50" class="pl-8 w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+          <p class="text-xs text-slate-400 mt-1">基準約合 20,000 RMB/月</p>
+        </div>
+
+        <!-- 貨款金額 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">貨物備貨本金 (USD)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-medium">$</span>
+            <input id="inputInventory" type="number" value="26785" step="1000" class="pl-8 w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+          <div class="flex justify-between text-xs text-slate-500 mt-1">
+            <span>年息 (5%)：<span id="labelAnnualInterest" class="font-semibold text-slate-700">$1,339.25</span></span>
+            <span>月息：<span id="labelMonthlyInterest" class="font-semibold text-blue-600">$111.60</span></span>
+          </div>
+        </div>
+
+        <!-- 每月新增老客戶 -->
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="text-sm font-medium text-slate-700">每月新增忠誠老客戶 (k)</label>
+            <span id="labelGrowth" class="text-base font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">+2 人 / 月</span>
+          </div>
+          <input id="inputGrowth" type="range" min="1" max="10" step="0.5" value="2" class="w-full h-2 bg-slate-200 rounded-lg cursor-pointer">
+          <div class="flex justify-between text-xs text-slate-400 mt-1">
+            <span>+1人</span>
+            <span>+5人</span>
+            <span>+10人</span>
+          </div>
+        </div>
+
+        <!-- 廣告費用 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">每月廣告費用 (USD/月)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-medium">$</span>
+            <input id="inputAd" type="number" value="1500" step="50" class="pl-8 w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+        </div>
+
+        <!-- 伺服器費用 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">每月伺服器費用 (USD/月)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-medium">$</span>
+            <input id="inputServer" type="number" value="90" step="5" class="pl-8 w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+        </div>
+
+        <!-- 單客年純利貢獻 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">老客年純利潤貢獻 (USD/年)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-medium">$</span>
+            <input id="inputLTV" type="number" value="1000" step="100" class="pl-8 w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+          <p class="text-xs text-slate-400 mt-1">折合老客月均純利：<span id="labelMonthlyLTV" class="font-medium text-slate-600">$83.33</span> USD/月</p>
+        </div>
+
+        <!-- 快捷情境按鈕 -->
+        <div class="pt-2 border-t border-slate-100 flex gap-2">
+          <button id="btnScenario2" class="flex-1 py-2 px-3 text-xs font-semibold rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition">目標一 (+2人)</button>
+          <button id="btnScenario3" class="flex-1 py-2 px-3 text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 hover:bg-emerald-50 transition">目標二 (+3人)</button>
+        </div>
+      </section>
+
+      <!-- 右側：4 大核心指標看板與圖表 -->
+      <section class="lg:col-span-8 flex flex-col justify-between gap-6">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <span class="text-xs font-medium text-slate-400 block uppercase">每月總固定開銷</span>
+            <span id="cardFixedCost" class="text-2xl font-bold text-slate-900 mt-1 block">$4,677.60</span>
+            <span id="cardFixedCostSub" class="text-xs text-slate-500 mt-1 block">含薪資與利息</span>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <span class="text-xs font-medium text-slate-400 block uppercase">需老客打平門檻</span>
+            <span id="cardTargetUsers" class="text-2xl font-bold text-indigo-600 mt-1 block">51 位</span>
+            <span id="cardTargetUsersExact" class="text-xs text-slate-500 mt-1 block">扣除散客利潤後需求</span>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <span class="text-xs font-medium text-slate-400 block uppercase">單月收支平衡時間</span>
+            <span id="cardBreakEvenMonth" class="text-2xl font-bold text-blue-600 mt-1 block">第 26 個月</span>
+            <span id="cardBreakEvenStatus" class="text-xs text-emerald-600 mt-1 block font-medium">當月淨現金流 +$89.07</span>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <span class="text-xs font-medium text-slate-400 block uppercase">全額投資回本點</span>
+            <span id="cardFullPaybackMonth" class="text-2xl font-bold text-amber-600 mt-1 block">> 36 個月</span>
+            <span class="text-xs text-slate-500 mt-1 block">貨款+營運全額回本</span>
+          </div>
+
+        </div>
+
+        <!-- 輔助指標卡 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl flex items-center justify-between">
+            <div>
+              <div class="text-xs text-blue-700 font-semibold uppercase">單客最高獲客成本 (Max CAC)</div>
+              <div class="text-xs text-blue-600 mt-0.5">廣告預算 ÷ 當月新增客戶數</div>
+            </div>
+            <div id="cardMaxCAC" class="text-xl font-bold text-blue-800">$750 USD</div>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center justify-between">
+            <div>
+              <div class="text-xs text-amber-800 font-semibold uppercase">散客年純利總貢獻</div>
+              <div class="text-xs text-amber-600 mt-0.5">單月散客純利 × 12 個月</div>
+            </div>
+            <div id="cardAnnualRetail" class="text-xl font-bold text-amber-800">$6,000.00 USD</div>
+          </div>
+        </div>
+
+        <!-- 圖表區域 -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <h3 class="text-base font-semibold text-slate-900">收支走勢與資本回本推演 (前 36 個月)</h3>
+            <div class="flex items-center gap-3 text-xs font-medium flex-wrap">
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-600 inline-block"></span>當月總純利(老客+散客)</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>固定成本線(含薪資/利息)</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>全額累計總損益(含貨款)</span>
+            </div>
+          </div>
+          <div class="relative h-64 md:h-72 w-full">
+            <canvas id="cashflowChart"></canvas>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- 逐月詳細精算明細表 -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">逐月現金流與損益精算表 (前 36 個月)</h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            標註說明：<span class="text-emerald-700 font-semibold">綠色高亮</span> 為單月收支平衡點；<span class="text-amber-700 font-semibold">金色高亮</span> 為貨款本金與營運開銷全額回本點
+          </p>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-600">
+          <thead class="bg-slate-50 text-slate-700 text-xs uppercase font-semibold border-b border-slate-200">
+            <tr>
+              <th class="py-3 px-4">月份</th>
+              <th class="py-3 px-4">累計老客數 (N)</th>
+              <th class="py-3 px-4">老客純利</th>
+              <th class="py-3 px-4">散客純利</th>
+              <th class="py-3 px-4">當月總純利 (R)</th>
+              <th class="py-3 px-4">固定支出 (FC)</th>
+              <th class="py-3 px-4">當月淨現金流 (Δ)</th>
+              <th class="py-3 px-4">全期累計總損益</th>
+              <th class="py-3 px-4">營運狀態</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-100 text-xs md:text-sm">
+            <!-- 動態生成表格列 -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    let chartInstance = null;
+
+    // DOM 元素快取
+    const inputRetailProfit = document.getElementById('inputRetailProfit');
+    const inputSalary = document.getElementById('inputSalary');
+    const inputInventory = document.getElementById('inputInventory');
+    const labelAnnualInterest = document.getElementById('labelAnnualInterest');
+    const labelMonthlyInterest = document.getElementById('labelMonthlyInterest');
+
+    const inputGrowth = document.getElementById('inputGrowth');
+    const labelGrowth = document.getElementById('labelGrowth');
+    const inputAd = document.getElementById('inputAd');
+    const inputServer = document.getElementById('inputServer');
+    const inputLTV = document.getElementById('inputLTV');
+    const labelMonthlyLTV = document.getElementById('labelMonthlyLTV');
+
+    const cardFixedCost = document.getElementById('cardFixedCost');
+    const cardFixedCostSub = document.getElementById('cardFixedCostSub');
+    const cardTargetUsers = document.getElementById('cardTargetUsers');
+    const cardTargetUsersExact = document.getElementById('cardTargetUsersExact');
+    const cardBreakEvenMonth = document.getElementById('cardBreakEvenMonth');
+    const cardBreakEvenStatus = document.getElementById('cardBreakEvenStatus');
+    const cardFullPaybackMonth = document.getElementById('cardFullPaybackMonth');
+    const cardMaxCAC = document.getElementById('cardMaxCAC');
+    const cardAnnualRetail = document.getElementById('cardAnnualRetail');
+    const tableBody = document.getElementById('tableBody');
+
+    const fmtUSD = (num) => {
+      const isNeg = num < 0;
+      const absVal = Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return isNeg ? `-$${absVal}` : `$${absVal}`;
+    };
+
+    function recalculate() {
+      const retailProfit = parseFloat(inputRetailProfit.value) || 0;
+      const salary = parseFloat(inputSalary.value) || 0;
+      const inventory = parseFloat(inputInventory.value) || 0;
+      const annualInterest = inventory * 0.05;
+      const monthlyInterest = annualInterest / 12;
+
+      const k = parseFloat(inputGrowth.value);
+      const ad = parseFloat(inputAd.value) || 0;
+      const server = parseFloat(inputServer.value) || 0;
+      const ltv = parseFloat(inputLTV.value) || 0;
+
+      const p = ltv / 12; // 單客每月平均利潤
+      const FC = salary + ad + server + monthlyInterest; // 每月總固定成本（包含薪資與利息）
+
+      // 介面標籤更新
+      labelGrowth.textContent = `+${k} 人 / 月`;
+      labelMonthlyLTV.textContent = `$${p.toFixed(2)}`;
+      labelAnnualInterest.textContent = fmtUSD(annualInterest);
+      labelMonthlyInterest.textContent = fmtUSD(monthlyInterest);
+      cardAnnualRetail.textContent = fmtUSD(retailProfit * 12) + ' USD';
+      cardFixedCostSub.textContent = `薪水 ${fmtUSD(salary)} + 息 ${fmtUSD(monthlyInterest)}`;
+
+      // 計算扣除散客利潤後，還需要多少老客戶才能打平
+      const netGapToCover = Math.max(0, FC - retailProfit);
+      const exactTargetUsers = p > 0 ? (netGapToCover / p) : 0;
+      const targetUsers = Math.ceil(exactTargetUsers);
+      const breakEvenMonth = k > 0 ? Math.ceil(exactTargetUsers / k) : 0;
+      const maxCAC = k > 0 ? (ad / k) : 0;
+
+      cardFixedCost.textContent = fmtUSD(FC);
+      cardTargetUsers.textContent = `${targetUsers} 位`;
+      cardTargetUsersExact.textContent = `扣除散客後需 ${exactTargetUsers.toFixed(2)} 位`;
+      cardBreakEvenMonth.textContent = breakEvenMonth > 0 ? `第 ${breakEvenMonth} 個月` : (retailProfit >= FC ? '第 1 個月已打平' : '無法達成');
+      cardMaxCAC.textContent = `$${Math.round(maxCAC).toLocaleString()} USD`;
+
+      // 前 36 個月推演
+      const months = [];
+      const revenueData = [];
+      const fixedCostData = [];
+      const cumulativeData = [];
+
+      let cumProfitWithPrincipal = -inventory; // 期初扣除貨款本金
+      let fullPaybackMonth = -1;
+      let tableHTML = '';
+
+      for (let m = 1; m <= 36; m++) {
+        const users = m * k;
+        const loyalRev = users * p;
+        const totalRev = loyalRev + retailProfit;
+        const delta = totalRev - FC;
+        cumProfitWithPrincipal += delta;
+
+        if (fullPaybackMonth === -1 && cumProfitWithPrincipal >= 0) {
+          fullPaybackMonth = m;
+        }
+
+        months.push(`M${m}`);
+        revenueData.push(totalRev);
+        fixedCostData.push(FC);
+        cumulativeData.push(cumProfitWithPrincipal);
+
+        const isBreakEven = m === breakEvenMonth;
+        const isFullPayback = m === fullPaybackMonth;
+
+        let rowClass = '';
+        let badge = '<span class="text-slate-400">營運爬坡</span>';
+
+        if (isFullPayback) {
+          rowClass = 'bg-amber-50 font-semibold text-amber-950';
+          badge = '<span class="inline-flex px-2 py-0.5 rounded text-xs bg-amber-600 text-white font-bold">★ 貨款本息全額回本</span>';
+        } else if (isBreakEven) {
+          rowClass = 'bg-emerald-50 font-semibold text-emerald-950';
+          badge = '<span class="inline-flex px-2 py-0.5 rounded text-xs bg-emerald-600 text-white font-bold">★ 單月收支打平</span>';
+        } else if (m > breakEvenMonth) {
+          badge = '<span class="text-emerald-600 font-medium">單月正向造血</span>';
+        }
+
+        const deltaColor = delta >= 0 ? 'text-emerald-600 font-semibold' : 'text-slate-600';
+        const cumColor = cumProfitWithPrincipal >= 0 ? 'text-emerald-600 font-bold' : 'text-rose-600';
+
+        tableHTML += `
+          <tr class="hover:bg-slate-100/60 transition ${rowClass}">
+            <td class="py-2.5 px-4 font-medium">${months[m - 1]}</td>
+            <td class="py-2.5 px-4">${users.toFixed(users % 1 === 0 ? 0 : 1)} 位</td>
+            <td class="py-2.5 px-4">${fmtUSD(loyalRev)}</td>
+            <td class="py-2.5 px-4 text-amber-600">${fmtUSD(retailProfit)}</td>
+            <td class="py-2.5 px-4 font-semibold">${fmtUSD(totalRev)}</td>
+            <td class="py-2.5 px-4">${fmtUSD(FC)}</td>
+            <td class="py-2.5 px-4 ${deltaColor}">${delta > 0 ? '+' : ''}${fmtUSD(delta)}</td>
+            <td class="py-2.5 px-4 ${cumColor}">${cumProfitWithPrincipal > 0 ? '+' : ''}${fmtUSD(cumProfitWithPrincipal)}</td>
+            <td class="py-2.5 px-4">${badge}</td>
+          </tr>
+        `;
+      }
+
+      tableBody.innerHTML = tableHTML;
+
+      // 更新卡片狀態
+      if (breakEvenMonth > 0) {
+        const beDelta = (breakEvenMonth * k * p + retailProfit) - FC;
+        cardBreakEvenStatus.textContent = `當月淨現金流 +$${beDelta.toFixed(2)}`;
+      }
+
+      if (fullPaybackMonth !== -1) {
+        cardFullPaybackMonth.textContent = `第 ${fullPaybackMonth} 個月`;
+      } else {
+        cardFullPaybackMonth.textContent = `> 36 個月`;
+      }
+
+      // 更新圖表
+      updateChart(months, revenueData, fixedCostData, cumulativeData);
+    }
+
+    function updateChart(labels, rev, fc, cum) {
+      if (!chartInstance) {
+        const ctx = document.getElementById('cashflowChart').getContext('2d');
+        chartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: '當月總純利 (老客+散客) (USD)',
+                data: rev,
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                borderWidth: 2.5,
+                tension: 0.1,
+                fill: false,
+                yAxisID: 'y'
+              },
+              {
+                label: '每月總固定成本(含薪資/利息) (USD)',
+                data: fc,
+                borderColor: '#f43f5e',
+                borderDash: [5, 5],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+                yAxisID: 'y'
+              },
+              {
+                label: '全額累計總損益(含貨款本金) (USD)',
+                data: cum,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                borderWidth: 2,
+                tension: 0.1,
+                fill: true,
+                yAxisID: 'y1'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: { display: true, text: '單月金額 (USD)' }
+              },
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                grid: { drawOnChartArea: false },
+                title: { display: true, text: '全期累計總損益 (USD)' }
+              }
+            }
+          }
+        });
+      } else {
+        chartInstance.data.labels = labels;
+        chartInstance.data.datasets[0].data = rev;
+        chartInstance.data.datasets[1].data = fc;
+        chartInstance.data.datasets[2].data = cum;
+        chartInstance.update();
+      }
+    }
+
+    // 事件監聽
+    [inputRetailProfit, inputSalary, inputInventory, inputGrowth, inputAd, inputServer, inputLTV].forEach(el => {
+      el.addEventListener('input', recalculate);
+    });
+
+    document.getElementById('btnScenario2').addEventListener('click', () => {
+      inputGrowth.value = 2;
+      recalculate();
+    });
+
+    document.getElementById('btnScenario3').addEventListener('click', () => {
+      inputGrowth.value = 3;
+      recalculate();
+    });
+
+    // 啟動首次運算
+    recalculate();
+  </script>
+</body>
+</html>
